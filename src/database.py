@@ -26,11 +26,12 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
         
-        # Tabela de Despesas
+        # Tabela de Despesas ATUALIZADA com coluna 'tipo'
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS despesas (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 data TEXT NOT NULL,
+                tipo TEXT NOT NULL,
                 categoria TEXT NOT NULL,
                 descricao TEXT,
                 valor REAL NOT NULL

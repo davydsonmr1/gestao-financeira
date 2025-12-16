@@ -9,14 +9,14 @@ class FinanceiroController:
     def __init__(self):
         self.db = Database()
 
-    def adicionar_despesa(self, data: str, categoria: str, descricao: str, valor: float):
+    def adicionar_despesa(self, data: str, tipo: str, categoria: str, descricao: str, valor: float):
         """Adiciona uma despesa de forma segura usando prepared statements."""
         try:
             conn = self.db.get_connection()
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO despesas (data, categoria, descricao, valor) VALUES (?, ?, ?, ?)",
-                (data, categoria, descricao, valor)
+                "INSERT INTO despesas (data, tipo, categoria, descricao, valor) VALUES (?, ?, ?, ?, ?)",
+                (data, tipo, categoria, descricao, valor)
             )
             conn.commit()
             conn.close()
@@ -84,7 +84,7 @@ class FinanceiroController:
         ws.title = f"{mes:02d}-{ano}"
 
         # Cabeçalhos
-        headers = ["ID", "Data", "Categoria", "Descrição", "Valor (R$)"]
+        headers = ["ID", "Data", "Tipo", "Categoria", "Descrição", "Valor (R$)"]
         ws.append(headers)
 
         # Estilo Cabeçalho
@@ -99,23 +99,23 @@ class FinanceiroController:
 
         # Dados
         for _, row in df.iterrows():
-            ws.append([row['id'], row['data'], row['categoria'], row['descricao'], row['valor']])
+            ws.append([row['id'], row['data'], row['tipo'], row['categoria'], row['descricao'], row['valor']])
 
         # Formatação Monetária e Auto-fit
-        for row in ws.iter_rows(min_row=2, max_col=5):
-            # Coluna de valor é a 5
-            row[4].number_format = 'R$ #,##0.00'
+        for row in ws.iter_rows(min_row=2, max_col=6):
+            # Coluna de valor é a 6 agora
+            row[5].number_format = 'R$ #,##0.00'
 
         # Resumo no final
         last_row = ws.max_row + 2
-        ws.cell(row=last_row, column=4, value="RECEITA TOTAL:").font = Font(bold=True)
-        ws.cell(row=last_row, column=5, value=receita_total).number_format = 'R$ #,##0.00'
+        ws.cell(row=last_row, column=5, value="RECEITA TOTAL:").font = Font(bold=True)
+        ws.cell(row=last_row, column=6, value=receita_total).number_format = 'R$ #,##0.00'
         
-        ws.cell(row=last_row+1, column=4, value="TOTAL DESPESAS:").font = Font(bold=True, color="FF0000")
-        ws.cell(row=last_row+1, column=5, value=total_despesas).number_format = 'R$ #,##0.00'
+        ws.cell(row=last_row+1, column=5, value="TOTAL DESPESAS:").font = Font(bold=True, color="FF0000")
+        ws.cell(row=last_row+1, column=6, value=total_despesas).number_format = 'R$ #,##0.00'
 
-        ws.cell(row=last_row+2, column=4, value="SALDO FINAL:").font = Font(bold=True)
-        saldo_cell = ws.cell(row=last_row+2, column=5, value=saldo)
+        ws.cell(row=last_row+2, column=5, value="SALDO FINAL:").font = Font(bold=True)
+        saldo_cell = ws.cell(row=last_row+2, column=6, value=saldo)
         saldo_cell.number_format = 'R$ #,##0.00'
         
         # Cor condicional no Excel
