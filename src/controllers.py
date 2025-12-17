@@ -1,6 +1,7 @@
 import sqlite3
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 from src.database import Database
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -9,15 +10,33 @@ class FinanceiroController:
     def __init__(self):
         self.db = Database()
 
-    def adicionar_despesa(self, data: str, tipo: str, categoria: str, descricao: str, valor: float):
-        """Adiciona uma despesa de forma segura usando prepared statements."""
+    def adicionar_despesa(self, data: str, tipo: str, categoria: str, descricao: str, valor: float, recorrencia_meses: int = 0):
+        """Adiciona uma despesa. Se recorrência > 0, cria automaticamente para os próximos meses."""
         try:
             conn = self.db.get_connection()
             cursor = conn.cursor()
-            cursor.execute(
-                "INSERT INTO despesas (data, tipo, categoria, descricao, valor) VALUES (?, ?, ?, ?, ?)",
-                (data, tipo, categoria, descricao, valor)
-            )
+            
+            # Converter data string para datetime (MM/AA)
+            data_dt = datetime.strptime(data, "%m/%y")
+            
+            # Determinar quantas vezes repetir
+            if tipo == "Fixa":
+                repeticoes = 12  # Fixas se repetem por 1 ano
+            elif recorrencia_meses > 0:
+                repeticoes = recorrencia_meses
+            else:
+                repeticoes = 1  # Apenas uma vez (Variável sem recorrência)
+            
+            # Inserir a despesa original e as recorrentes
+            for i in range(repeticoes):
+                data_futura = data_dt + relativedelta(months=i)
+                data_str = data_futura.strftime("%m/%y")
+                
+                cursor.execute(
+                    "INSERT INTO despesas (data, tipo, categoria, descricao, valor, recorrencia_meses) VALUES (?, ?, ?, ?, ?, ?)",
+                    (data_str, tipo, categoria, descricao, valor, recorrencia_meses)
+                )
+            
             conn.commit()
             conn.close()
         except Exception as e:
@@ -70,6 +89,79 @@ class FinanceiroController:
         cursor.execute("UPDATE configuracoes SET salario_1 = ?, salario_2 = ? WHERE id = 1", (sal1, sal2))
         conn.commit()
         conn.close()
+    
+    def adicionar_receita_extra(self, mes: int, ano: int, descricao: str, valor: float):
+        """Adiciona uma receita extra para um mês/ano específico"""
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT OR REPLACE INTO receitas_extras (mes, ano, descricao, valor) VALUES (?, ?, ?, ?)",
+            (mes, ano, descricao, valor)
+        )
+        conn.commit()
+        conn.close()
+    
+    def buscar_receitas_extras_mes(self, mes: int, ano: int):
+        """Busca receitas extras de um mês/ano"""
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM receitas_extras WHERE mes = ? AND ano = ?", (mes, ano))
+        resultado = cursor.fetchall()
+        conn.close()
+        return resultado
+    
+    def adicionar_categoria(self, nome: str, icone: str):
+        """Adiciona uma nova categoria personalizada."""
+        try:
+            conn = self.db.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO categorias (nome, icone) VALUES (?, ?)", (nome, icone))
+            conn.commit()
+            conn.close()
+        except sqlite3.IntegrityError:
+            raise Exception("Categoria já existe!")
+        except Exception as e:
+            raise e
+    
+    def buscar_categorias(self):
+        """Retorna todas as categorias com seus ícones."""
+        conn = self.db.get_connection()
+        query = "SELECT nome, icone FROM categorias ORDER BY nome"
+        df = pd.read_sql_query(query, conn)
+        conn.close()
+        return df
+    
+    def excluir_categoria(self, nome: str):
+        """Exclui uma categoria personalizada."""
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM categorias WHERE nome = ?\", (nome,))
+        conn.commit()
+        conn.close()
+    
+    def excluir_receita_extra(self, receita_id: int):
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM receitas_extras WHERE id = ?", (receita_id,))
+        conn.commit()
+        conn.close()
+    
+    def calcular_totais_mes(self, mes: int, ano: int):
+        """Retorna (receita_total, despesas_total, saldo)"""
+        salarios = self.get_configuracoes()
+        receita_total = sum(salarios)
+        
+        # Adicionar receitas extras do mês
+        receitas_extras = self.buscar_receitas_extras_mes(mes, ano)
+        total_extras = sum([r[4] for r in receitas_extras])  # r[4] é o valor
+        receita_total += total_extras
+        
+        df = self.buscar_despesas_mes(mes, ano)
+        despesas_total = df['valor'].sum() if not df.empty else 0.0
+        
+        saldo = receita_total - despesas_total
+        
+        return (receita_total, despesas_total, saldo)
 
     def exportar_relatorio(self, mes: int, ano: int, caminho_arquivo: str):
         """Gera Excel estilizado e profissional."""

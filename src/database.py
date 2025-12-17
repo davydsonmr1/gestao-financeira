@@ -26,7 +26,7 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
         
-        # Tabela de Despesas ATUALIZADA com coluna 'tipo'
+        # Tabela de Despesas ATUALIZADA com coluna 'tipo' e 'recorrencia_meses'
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS despesas (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,7 +34,8 @@ class Database:
                 tipo TEXT NOT NULL,
                 categoria TEXT NOT NULL,
                 descricao TEXT,
-                valor REAL NOT NULL
+                valor REAL NOT NULL,
+                recorrencia_meses INTEGER DEFAULT 0
             )
         ''')
 
@@ -47,8 +48,40 @@ class Database:
             )
         ''')
         
+        # Tabela de Receitas Extras (Dinheiro Extra por Mês/Ano)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS receitas_extras (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                mes INTEGER NOT NULL,
+                ano INTEGER NOT NULL,
+                descricao TEXT,
+                valor REAL NOT NULL,
+                UNIQUE(mes, ano, descricao)
+            )
+        ''')
+        
+        # Tabela de Categorias Personalizadas
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS categorias (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT NOT NULL UNIQUE,
+                icone TEXT NOT NULL
+            )
+        ''')
+        
         # Garante que existe a linha de configuração inicial
         cursor.execute('INSERT OR IGNORE INTO configuracoes (id, salario_1, salario_2) VALUES (1, 0.0, 0.0)')
+        
+        # Inserir categorias padrão se não existirem
+        categorias_padrao = [
+            ('Alimentação', '🍔'),
+            ('Transporte', '🚗'),
+            ('Casa', '🏠'),
+            ('Lazer', '🎮'),
+            ('Outros', '📦')
+        ]
+        for nome, icone in categorias_padrao:
+            cursor.execute('INSERT OR IGNORE INTO categorias (nome, icone) VALUES (?, ?)', (nome, icone))
         
         conn.commit()
         conn.close()
