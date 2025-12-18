@@ -1,12 +1,26 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import os
+from pathlib import Path
+
+# Adicionar o diretório src como dados
+src_dir = Path('src')
+src_tree = [(str(src_dir), 'src')]
 
 a = Analysis(
     ['main.py'],
-    pathex=[],
+    pathex=['.'],
     binaries=[],
-    datas=[('src', 'src')],
-    hiddenimports=[],
+    datas=src_tree,
+    hiddenimports=[
+        'src',
+        'src.controllers',
+        'src.database',
+        'src.views',
+        'src.views.dashboard',
+        'src.views.forms',
+        'src.views.settings',
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

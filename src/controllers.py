@@ -11,32 +11,46 @@ class FinanceiroController:
         self.db = Database()
 
     def adicionar_despesa(self, data: str, tipo: str, categoria: str, descricao: str, valor: float, recorrencia_meses: int = 0):
-        """Adiciona uma despesa. Se recorrência > 0, cria automaticamente para os próximos meses."""
+        """Adiciona uma despesa. Aceita data em 'DD/MM/YYYY' ou 'MM/YY'. Se recorrência > 0, cria automaticamente para os próximos meses.
+        Armazena data no formato 'DD/MM/YYYY' para compatibilidade com o restante da aplicação."""
         try:
             conn = self.db.get_connection()
             cursor = conn.cursor()
-            
-            # Converter data string para datetime (MM/AA)
-            data_dt = datetime.strptime(data, "%m/%y")
-            
+
+            # Tentar interpretar data em vários formatos
+            parse_formats = ["%d/%m/%Y", "%m/%y", "%Y-%m-%d", "%d-%m-%Y"]
+            data_dt = None
+            for fmt in parse_formats:
+                try:
+                    data_dt = datetime.strptime(data, fmt)
+                    # Se veio apenas mês/ano (%m/%y), definir dia como 1
+                    if fmt == "%m/%y":
+                        data_dt = data_dt.replace(day=1)
+                    break
+                except Exception:
+                    continue
+
+            if data_dt is None:
+                raise ValueError("Formato de data inválido. Use DD/MM/YYYY ou MM/YY.")
+
             # Determinar quantas vezes repetir
             if tipo == "Fixa":
                 repeticoes = 12  # Fixas se repetem por 1 ano
-            elif recorrencia_meses > 0:
+            elif recorrencia_meses and recorrencia_meses > 0:
                 repeticoes = recorrencia_meses
             else:
                 repeticoes = 1  # Apenas uma vez (Variável sem recorrência)
-            
-            # Inserir a despesa original e as recorrentes
+
+            # Inserir a despesa original e as recorrentes (armazena como DD/MM/YYYY)
             for i in range(repeticoes):
                 data_futura = data_dt + relativedelta(months=i)
-                data_str = data_futura.strftime("%m/%y")
-                
+                data_str = data_futura.strftime("%d/%m/%Y")
+
                 cursor.execute(
                     "INSERT INTO despesas (data, tipo, categoria, descricao, valor, recorrencia_meses) VALUES (?, ?, ?, ?, ?, ?)",
                     (data_str, tipo, categoria, descricao, valor, recorrencia_meses)
                 )
-            
+
             conn.commit()
             conn.close()
         except Exception as e:
@@ -135,7 +149,7 @@ class FinanceiroController:
         """Exclui uma categoria personalizada."""
         conn = self.db.get_connection()
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM categorias WHERE nome = ?\", (nome,))
+        cursor.execute("DELETE FROM categorias WHERE nome = ?", (nome,))
         conn.commit()
         conn.close()
     

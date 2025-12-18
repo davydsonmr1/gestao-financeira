@@ -48,7 +48,8 @@ class FormView(ctk.CTkFrame):
             if not valor_str: raise ValueError("Valor vazio")
             valor = float(valor_str)
 
-            self.controller.adicionar_despesa(data, cat, desc, valor)
+            # FormView não possui seleção de tipo/recorrência — cadastrar como 'Variável' sem recorrência
+            self.controller.adicionar_despesa(data, "Variável", cat, desc, valor, 0)
             
             # Limpar campos e atualizar
             self.ent_descricao.delete(0, "end")
